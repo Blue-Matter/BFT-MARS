@@ -1,8 +1,9 @@
 
+library(tidyverse)
 
 # Get data list from ABFTMSE package ----
 dat <- local({
-  load("data/MARS_input_Dec23.rda")
+  load("data/MARS_input_March24.rda")
   MARSinput
 })
 
@@ -67,6 +68,19 @@ g <- Cobs %>%
   guides(fill = guide_legend(ncol = 4, title = NULL)) +
   labs(x = "Year", y = "Catch")
 ggsave("figures/Cobs_season2.png", g, height = 6, width = 6)
+
+# Spool up catch
+g <- dat$HCobs %>%
+  structure(dimnames = list(Year = 1864:1964, Season = 1:4, Age = 1:35, Area = area_df$AreaName)) %>%
+  reshape2::melt() %>%
+  filter(Age %in% seq(1, 35, 5)) %>%
+  mutate(Season = paste("Season", Season), Age = factor(Age)) %>%
+  ggplot(aes(Year, value, colour = Age)) +
+  facet_grid(vars(Area), vars(Season), scales = "free_y") +
+  geom_line() +
+  theme(panel.spacing = unit(0, "in"), legend.position = "bottom") +
+  labs(y = "Catch")
+ggsave("figures/catch_reconstruction.png", height = 5, width = 6)
 
 # Indices
 #Ft = Fleet selectivity to mirror
