@@ -122,7 +122,7 @@ SOO_genetic <- dat$SOOobs %>%
   as.data.frame() %>%
   filter(Type == 2, !is.na(r)) %>%
   mutate(EBFT = plogis(probE) * N, WBFT = N - EBFT) %>%
-  reshape2::melt(id.vars = c("a", "y", "s", "r", "SE"), measure.vars = c("EBFT", "WBFT")) %>%
+  reshape2::melt(id.vars = c("a", "y", "s", "r", "SE", "N"), measure.vars = c("EBFT", "WBFT")) %>%
   mutate(stock = ifelse(variable == "EBFT", 1, 2), f = 1) %>%
   select(!variable) %>%
   as.matrix()
@@ -136,7 +136,8 @@ Dfishery@SC_aa[1, 1:4] <- Dfishery@SC_aa[2, 5:8] <- Dfishery@SC_aa[3, 9:Dmodel@n
 Dfishery@SC_ff <- matrix(1, 1, Dfishery@nf)
 
 Dfishery@SC_like <- "lognormal"
-Dfishery@SCstdev_f <- mean(dat$SOOobs[, "SE"])
+Dfishery@SCstdev_ymafrs <- array(NA, c(Dmodel@ny, Dmodel@nm, 3, 1, Dmodel@nr, Dmodel@ns))
+Dfishery@SCstdev_ymafrs[SOO_genetic[, c("y", "s", "a", "f", "r", "stock")]] <- SOO_genetic[, "SE"]
 
 # Indices/survey ----
 nseries <- dat$CPUEobs %>%
