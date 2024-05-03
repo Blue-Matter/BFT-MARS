@@ -104,14 +104,14 @@ Dfishery <- new(
 
 # Catch
 Dfishery@Cobs_ymfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dfishery@nf, Dmodel@nr))
-Dfishery@Cobs_ymfr[dat$Cobs[, c("Year", "Quarter", "Fleet", "Area")]] <- dat$Cobs[, "Catch"]
+Dfishery@Cobs_ymfr[dat$Cobs[, c("Year", "Quarter", "Fleet", "Area")]] <- 1e-3 * dat$Cobs[, "Catch"] # Convert kg to tonnes
 
 # Length comp
 Dfishery@CALobs_ymlfr <- local({
   CAL <- array(0, c(Dmodel@ny, Dmodel@nm, Dmodel@nl, Dfishery@nf, Dmodel@nr))
   x <- dat$CLobs[dat$CLobs[, "Length_category"] <= dat$nl, ]
   CAL[x[, c("Year", "Subyear", "Length_category", "Fleet", "Area")]] <- x[, "N"]
-  x
+  CAL
 })
 Dfishery@fcomp_like <- "lognormal"
 
@@ -120,7 +120,7 @@ Dfishery@sel_f <- ifelse(dat$seltype == 2, "logistic_length", "dome_length")
 # Stock composition
 SOO_genetic <- dat$SOOobs %>%
   as.data.frame() %>%
-  filter(Type == 2) %>%
+  filter(Type == 2, !is.na(r)) %>%
   mutate(EBFT = plogis(probE) * N, WBFT = N - EBFT) %>%
   reshape2::melt(id.vars = c("a", "y", "s", "r", "SE"), measure.vars = c("EBFT", "WBFT")) %>%
   mutate(stock = ifelse(variable == "EBFT", 1, 2), f = 1) %>%
@@ -128,12 +128,15 @@ SOO_genetic <- dat$SOOobs %>%
   as.matrix()
 
 Dfishery@SC_ymafrs <- array(0, c(Dmodel@ny, Dmodel@nm, 3, 1, Dmodel@nr, Dmodel@ns))
-Dfishery@SC_ymafrs[, SOO_genetic[, c("y", "s", "a", "f", "r", "stock")]] <- SOO_genetic[, "value"]
+Dfishery@SC_ymafrs[SOO_genetic[, c("y", "s", "a", "f", "r", "stock")]] <- SOO_genetic[, "value"]
 
 Dfishery@SC_aa <- matrix(0, 3, Dmodel@na)
 Dfishery@SC_aa[1, 1:4] <- Dfishery@SC_aa[2, 5:8] <- Dfishery@SC_aa[3, 9:Dmodel@na] <- 1
 
 Dfishery@SC_ff <- matrix(1, 1, Dfishery@nf)
+
+Dfishery@SC_like <- "lognormal"
+Dfishery@SCstdev_f <- mean(dat$SOOobs[, "SE"])
 
 # Indices/survey ----
 nseries <- dat$CPUEobs %>%
@@ -222,15 +225,92 @@ Dsurvey <- new(
   delta_i = 0
 )
 
+# Tagging data ----
+Dtag <- new(
+  "Dtag",
+  tag_like = "multinomial"
+)
+
+PSAT <- dat$PSAT %>%
+  as.data.frame() %>%
+  mutate(y = 1) %>%
+  as.matrix()
+Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 3, Dmodel@nr, Dmodel@nr, Dmodel@ns))
+Dtag@tag_ymarrs[PSAT[, c("y", "s", "a", "fr", "tr", "p")]] <- PSAT[, "N"]
+Dtag@tag_yy <- matrix(1:Dmodel@ny, 1)
+Dtag@tag_aa <- Dfishery@SC_aa
+Dtag@tagN_ymars <- apply(Dtag@tag_ymarrs, c(1, 2, 3, 4, 6), sum)
+
+
+## ID possible stock movements ----
+mov_seas <- Dtag@tag_ymarrs[1, , , , , ] %>%
+  structure(dimnames = list(Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:3), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
+  reshape2::melt()
+mov_ann <- Dtag@tag_ymarrs[1, , , , , ] %>%
+  structure(dimnames = list(Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:3), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
+  reshape2::melt() %>%
+  summarise(value = sum(value), .by = c(AgeClass, From, To, Stock))
+
+## EBFT presence ----
+# Age class 1: MED and EATL for each season
+# Age class 2: MED and EATL for each season
+# Age class 3: MED, WATL, EATL for each season
+g <- mov_seas %>%
+  filter(Stock == "EBFT") %>%
+  ggplot(aes(From, To, label = value)) +
+  geom_tile(data = mov_seas %>% filter(Stock == "EBFT", value > 0), alpha = 0.25, aes(fill = value)) +
+  geom_text() +
+  scale_fill_viridis_c() +
+  facet_grid(vars(Season), vars(AgeClass)) +
+  labs(fill = "N tags") +
+  ggtitle("EBFT")
+
+## WBFT presence ----
+# Age class 1-3: EATL, WATL, GOM only for each season
+g <- mov_seas %>%
+  filter(Stock == "WBFT") %>%
+  ggplot(aes(From, To, fill = value, label = value)) +
+  geom_tile(data = mov_seas %>% filter(Stock == "WBFT", value > 0), alpha = 0.25, aes(fill = value)) +
+  geom_text() +
+  scale_fill_viridis_c() +
+  facet_grid(vars(Season), vars(AgeClass)) +
+  labs(fill = "N tags") +
+  ggtitle("WBFT")
+
+## Both stocks by age class
+g <- mov_ann %>%
+  ggplot(aes(From, To, label = value)) +
+  geom_tile(data = mov_ann %>% filter(value > 0), alpha = 0.25, aes(fill = value)) +
+  geom_text() +
+  scale_fill_viridis_c() +
+  facet_grid(vars(Stock), vars(AgeClass)) +
+  labs(fill = "N tags")
+
+Dstock@presence_rs <- matrix(FALSE, Dmodel@nr, Dmodel@ns)
+Dstock@presence_rs[-1, 1] <- TRUE
+Dstock@presence_rs[-4, 2] <- TRUE
+
+
+# Labels
+Dlabel <- new(
+  "Dlabel",
+  year = year_df$Real_year,
+  #season = 1:4,
+  #age = 1:Dmodel@na,
+  region = area_df$AreaName,
+  stock = c("EBFT", "WBFT"),
+  fleet = fleet_df$FleetName,
+  index = c(cpue_names, index_names)
+)
+
 MARSdata <- new(
   "MARSdata",
   Dmodel = Dmodel,
   Dstock = Dstock,
   Dfishery = Dfishery,
-  Dsurvey = Dsurvey
+  Dsurvey = Dsurvey,
+  Dtag = Dtag,
+  Dlabel = Dlabel
 )
 
-saveRDS(MARSdata, file = 'data/MARSdata_March2024.rds')
-
-
-
+saveRDS(MARSdata, file = 'data/MARSdata_April2024.rds')
