@@ -218,7 +218,7 @@ Dsurvey <- new(
   "Dsurvey",
   ni = length(c(cpue_f, index_f)),
   Iobs_ymi = abind::abind(cpue, index, along = 3),
-  Isd_ymi = abind::abind(cpue_sd, index_sd, along = 3),
+  Isd_ymi = abind::abind(cpue_sd, index_sd, along = 3) %>% pmin(0.75),
   unit_i = rep("B", 28),
   samp_irs = abind::abind(cpue_samp, index_samp, along = 1),
   sel_i = c(cpue_f, index_f),
