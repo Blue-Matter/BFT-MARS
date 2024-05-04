@@ -38,5 +38,5 @@ tictoc::toc()
 saveRDS(fit, file = "fit/model_April2024.rds")
 
 fit <- readRDS("fit/model_April2024.rds")
-report(fit, amov = c(1, 5, 9), dir = "fit", filename = "preliminary_fit")
+report(fit, amov = 1, dir = "fit", filename = "preliminary_fit")
 

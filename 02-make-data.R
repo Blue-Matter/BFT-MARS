@@ -232,23 +232,31 @@ Dtag <- new(
   tag_like = "multinomial"
 )
 
+# Aggregate over all age classes and years
+#PSAT <- dat$PSAT %>%
+#  as.data.frame() %>%
+#  mutate(y = 1) %>%
+#  as.matrix()
+n_ac <- 1
+
 PSAT <- dat$PSAT %>%
   as.data.frame() %>%
-  mutate(y = 1) %>%
+  summarise(N = sum(N), .by = c(p, a, s, t, fr, tr)) %>%
+  mutate(y = 1, a = 1) %>%
   as.matrix()
-Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 3, Dmodel@nr, Dmodel@nr, Dmodel@ns))
+Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 1, Dmodel@nr, Dmodel@nr, Dmodel@ns))
 Dtag@tag_ymarrs[PSAT[, c("y", "s", "a", "fr", "tr", "p")]] <- PSAT[, "N"]
-Dtag@tag_yy <- matrix(1:Dmodel@ny, 1)
-Dtag@tag_aa <- Dfishery@SC_aa
+Dtag@tag_yy <- matrix(1, 1, Dmodel@ny)
+Dtag@tag_aa <- matrix(1, 1, Dmodel@na)
 Dtag@tagN_ymars <- apply(Dtag@tag_ymarrs, c(1, 2, 3, 4, 6), sum)
 
 
 ## ID possible stock movements ----
-mov_seas <- Dtag@tag_ymarrs[1, , , , , ] %>%
-  structure(dimnames = list(Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:3), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
+mov_seas <- Dtag@tag_ymarrs[1, , , , , , drop = FALSE] %>%
+  structure(dimnames = list(Year = 1, Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:n_ac), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
   reshape2::melt()
-mov_ann <- Dtag@tag_ymarrs[1, , , , , ] %>%
-  structure(dimnames = list(Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:3), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
+mov_ann <- Dtag@tag_ymarrs[1, , , , , , drop = FALSE] %>%
+  structure(dimnames = list(Year = 1, Season = paste("Season", 1:4), AgeClass = paste("Age class", 1:n_ac), From = area_df$AreaName, To = area_df$AreaName, Stock = c("EBFT", "WBFT"))) %>%
   reshape2::melt() %>%
   summarise(value = sum(value), .by = c(AgeClass, From, To, Stock))
 
