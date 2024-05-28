@@ -71,3 +71,68 @@ saveRDS(fit, file = "fit/modelannual_April2024.rds")
 
 fit <- readRDS("fit/modelannual_April2024.rds")
 report(fit, amov = 1, dir = "fit", filename = "preliminary_fit_annual")
+
+# Show fit to indices (bespoke figure not available in reporting)
+
+# Stock specific index
+index <- lapply(22:28, function(i) {
+  s <- dat@Dsurvey@samp_irs[i, , ]
+  plot_index(fit, i = i) %>%
+    mutate(EBFT = colSums(s)[1] > 0)
+}) %>%
+  bind_rows() %>%
+  mutate(stock = ifelse(EBFT, "EBFT", "WBFT"))
+
+g <- ggplot(index, aes(year, obs, shape = stock)) +
+  geom_point() +
+  geom_linerange(aes(ymin = lwr, ymax = upr)) +
+  facet_wrap(vars(name), scales = "free_y") +
+  geom_line(data = index, colour = "red", aes(year, pred), inherit.aes = FALSE) +
+  expand_limits(y = 0) +
+  scale_shape_manual(values = c(16, 1)) +
+  labs(x = "Year", y = "Stock-specific index", shape = "Stock") +
+  theme(legend.position = "bottom")
+ggsave("fit/figures/index_stock_fit_annual.png", g, height = 6, width = 8)
+
+# Fishery CPUE
+cpue <- lapply(1:21, function(i) plot_index(fit, i = i)) %>%
+  bind_rows()
+
+g <- ggplot(cpue, aes(year, obs)) +
+  geom_point() +
+  geom_linerange(aes(ymin = lwr, ymax = upr)) +
+  facet_wrap(vars(name), scales = "free_y") +
+  geom_line(data = cpue, colour = "red", aes(year, pred), inherit.aes = FALSE) +
+  expand_limits(y = 0) +
+  scale_shape_manual(values = c(16, 1)) +
+  labs(x = "Year", y = "Fishery CPUE") +
+  theme(legend.position = "bottom")
+ggsave("fit/figures/index_fishery_fit_annual.png", g, height = 6, width = 10)
+
+png("fit/figures/recruitment_fit_annual.png", height = 7, width = 5, units = "in", res = 400)
+par(mfrow = c(2, 1), mar = c(5, 4, 1, 1))
+lapply(1:2, function(s) plot_R(fit, s = s))
+dev.off()
+
+png("fit/figures/spawning_fit_annual.png", height = 7, width = 5, units = "in", res = 400)
+par(mfrow = c(2, 1), mar = c(5, 4, 1, 1))
+lapply(1:2, function(s) plot_S(fit, s = s))
+dev.off()
+
+png("fit/figures/bdist_fit_annual.png", height = 7, width = 5, units = "in", res = 400)
+par(mfrow = c(2, 1), mar = c(5, 4, 1, 1))
+lapply(1:2, function(s) {
+  plot_B(fit, by = "region", s = s, prop = TRUE)
+  title(ifelse(s == 1, "EBFT", "WBFT"), font.main = 1)
+})
+dev.off()
+
+png("fit/figures/rdist_fit_annual.png", height = 5, width = 5, units = "in", res = 400)
+par(mfrow = c(2, 2), mar = c(5, 4, 1, 1))
+lapply(1:4, function(r) {
+  region <- c("GOM", "WATL", "EATL", "MED")
+  plot_B(fit, by = "stock", r = r, prop = TRUE)
+  title(region[r], font.main = 1)
+})
+dev.off()
+
