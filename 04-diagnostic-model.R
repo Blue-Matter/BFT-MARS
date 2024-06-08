@@ -16,17 +16,17 @@ p <- profile(
   fit,
   p1 = "R0_s[1]",
   p2 = "R0_s[2]",
-  v1 = seq(1500, 5400, 500),
-  v2 = seq(35, 95, 10),
-  cores = 10
+  v1 = seq(2000, 6000, 250),
+  v2 = seq(40, 100, 5),
+  cores = 4
 )
 saveRDS(p, file = "fit/R0prof_April2024.rds")
 
 p1 <- profile(
   fit,
   p1 = "R0_s[1]",
-  v1 = seq(1000, 5000, 250)[13:15],
-  cores = 3
+  v1 = seq(2000, 6000, 250),
+  cores = 4
 )
 saveRDS(p1, file = "fit/R01prof_April2024.rds")
 
@@ -42,8 +42,8 @@ R0_1 <- seq(1000, 5000, 250)
 p2 <- profile(
   fit,
   p1 = "R0_s[2]",
-  v1 = seq(30, 90, 5),
-  cores = 10
+  v1 = seq(40, 100, 5),
+  cores = 4
 )
 saveRDS(p2, file = "fit/R02prof_April2024.rds")
 
@@ -88,7 +88,7 @@ png("fit/R0_profile.png", height = 8, width = 4, res = 400, units = "in")
 par(mfrow = c(3, 1), mar = c(5, 4, 1, 1))
 # Joint profile over R0 for both EBFT/WBFT
 p <- readRDS("fit/R0prof_April2024.rds")
-plot(p, nlevels = 40, xlab = "EBFT R0", ylab = "WBFT R0", main = "Change in objective function")
+plot(p, nlevels = 20, xlab = "EBFT R0", ylab = "WBFT R0", main = "Change in objective function")
 
 
 # Profile over R0 for EBFT

@@ -50,11 +50,28 @@ pars <- make_parameters(
   est_mov = "gravity_fixed"
 )
 
-dat@Misc$map <- pars$map
-dat@Misc$random <- pars$random
+# Make fishery sel priors
+dat@Dmodel@prior <- lapply(1:dat@Dfishery@nf, function(f) {
 
-#debug(MARS:::.MARS)
-mod <- MARS:::.MARS(pars$p, dat)
+  # Uninformative prior for length of full selectivity
+  p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.75, log = TRUE)")
+
+  # Ascending limb with lognormal SD = 0.3
+  start_p2 <- round(pars$p$sel_pf[2, f], 2)
+  p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.3, log = TRUE)")
+
+  # Descending limb with lognormal SD = 0.3
+  if (grepl("dome", dat@Dfishery@sel_f[f])) {
+    start_p3 <- round(pars$p$sel_pf[3, f], 2)
+    p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.3, log = TRUE)")
+  } else {
+    p3 <- NULL
+  }
+
+  c(p1, p2, p3)
+}) %>%
+  unlist()
+
 
 tictoc::tic()
 fit <- fit_MARS(

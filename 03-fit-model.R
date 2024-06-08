@@ -24,6 +24,33 @@ pars <- make_parameters(
 saveRDS(pars, file = "data/pars_April2024.rds")
 pars <- readRDS("data/pars_April2024.rds")
 
+# Make fishery sel priors
+dat@Dmodel@prior <- lapply(1:dat@Dfishery@nf, function(f) {
+
+  # Uninformative prior for length of full selectivity
+  p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.75, log = TRUE)")
+
+  # Ascending limb with lognormal SD = 0.3
+  start_p2 <- round(pars$p$sel_pf[2, f], 2)
+  p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.3, log = TRUE)")
+
+  # Descending limb with lognormal SD = 0.3
+  if (grepl("dome", dat@Dfishery@sel_f[f])) {
+    start_p3 <- round(pars$p$sel_pf[3, f], 2)
+    p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.3, log = TRUE)")
+  } else {
+    p3 <- NULL
+  }
+
+  c(p1, p2, p3)
+}) %>%
+  unlist()
+
+prior_recdist <- c("dnorm(p$log_recdist_rs[1, 2], 0, 2, log = TRUE)",
+                   "dnorm(p$log_recdist_rs[2, 2], 0, 2, log = TRUE)",
+                   "dnorm(p$mov_g_ymars[1, 3, 1, 3, 2], 0, 2, log = TRUE)")
+dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_recdist)
+
 tictoc::tic()
 fit <- fit_MARS(
   dat,
