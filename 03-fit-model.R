@@ -24,20 +24,34 @@ pars <- make_parameters(
 saveRDS(pars, file = "data/pars_April2024.rds")
 pars <- readRDS("data/pars_April2024.rds")
 
+tictoc::tic()
+fit_noprior <- fit_MARS(
+  dat,
+  pars$p,
+  pars$map,
+  pars$random,
+  run_model = TRUE,
+  do_sd = TRUE
+)
+tictoc::toc()
+
+saveRDS(fit_noprior, file = "fit/model_noprior_April2024.rds")
+
+
 # Make fishery sel priors
-dat@Dmodel@prior <- lapply(1:dat@Dfishery@nf, function(f) {
+prior_sel <- lapply(1:dat@Dfishery@nf, function(f) {
 
   # Uninformative prior for length of full selectivity
-  p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.75, log = TRUE)")
+  p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.5, log = TRUE)")
 
   # Ascending limb with lognormal SD = 0.3
   start_p2 <- round(pars$p$sel_pf[2, f], 2)
-  p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.3, log = TRUE)")
+  p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.4, log = TRUE)")
 
   # Descending limb with lognormal SD = 0.3
   if (grepl("dome", dat@Dfishery@sel_f[f])) {
     start_p3 <- round(pars$p$sel_pf[3, f], 2)
-    p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.3, log = TRUE)")
+    p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.4, log = TRUE)")
   } else {
     p3 <- NULL
   }
@@ -49,7 +63,7 @@ dat@Dmodel@prior <- lapply(1:dat@Dfishery@nf, function(f) {
 prior_recdist <- c("dnorm(p$log_recdist_rs[1, 2], 0, 2, log = TRUE)",
                    "dnorm(p$log_recdist_rs[2, 2], 0, 2, log = TRUE)",
                    "dnorm(p$mov_g_ymars[1, 3, 1, 3, 2], 0, 2, log = TRUE)")
-dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_recdist)
+dat@Dmodel@prior <- c(prior_sel, prior_recdist)
 
 tictoc::tic()
 fit <- fit_MARS(
@@ -66,6 +80,46 @@ saveRDS(fit, file = "fit/model_April2024.rds")
 
 fit <- readRDS("fit/model_April2024.rds")
 report(fit, amov = 1, dir = "fit", filename = "preliminary_fit")
+
+# Add natal mixing priors
+prior_dist <- local({
+  d <- readRDS("data/SPrior.rda")
+  sapply(1:nrow(d), function(i) {
+    val <- d[i, ]
+
+    s <- ifelse(val["Strata"] == 1, 2, 1)
+
+    mov <- paste0("mov_ymarrs[1, ", val["Quarter"], ", 1, , , ", s, "]")
+    start <- paste0("recdist_rs[, ", s, "]")
+
+    r <- ifelse(val["Strata"] == 1, 1, 4)
+
+    m <- log(val["Index"]) %>% round(3)
+    cv <- val["CV"]
+
+    paste0("calc_eqdist(", mov, ", start = ", start, ")[", r, "] %>% log() %>% dnorm(", m, ", ", cv, ", log = TRUE)")
+  })
+
+})
+
+dat@Dmodel@prior <- c(prior_sel, prior_recdist, prior_dist)
+
+tictoc::tic()
+fit_spatprior <- fit_MARS(
+  dat,
+  pars$p,
+  pars$map,
+  pars$random,
+  run_model = TRUE,
+  do_sd = TRUE
+)
+tictoc::toc()
+
+saveRDS(fit_spatprior, file = "fit/model_spatprior_April2024.rds")
+fit_spatprior <- readRDS(file = "fit/model_spatprior_April2024.rds")
+report(fit_spatprior, amov = 1, dir = "fit", filename = "preliminary_fit_spatprior")
+
+
 
 
 # Stock specific index
