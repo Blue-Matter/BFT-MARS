@@ -114,13 +114,15 @@ g <- dat$CPUEobs %>%
   left_join(year_df) %>%
   left_join(fleet_df) %>%
   left_join(area_df, by = c("Area" = "Area")) %>%
+  left_join(data.frame(qNo = 1:21, CPUEName = dat$CPUEnames), by = "qNo") %>%
+  mutate(name = paste0(CPUEName, " (", FleetName, ")")) %>%
   mutate(Real_year = Real_year + 0.25*(Quarter - 1),
          CV = pmin(CV, 1)) %>%
   ggplot(aes(Real_year, Index, colour = AreaName, group = AreaName)) +
   geom_line(linewidth = 0.1, linetype = 3, color = "grey40") +
   geom_linerange(aes(ymin = exp(log(Index) - 2 * CV), ymax = exp(log(Index) + 2*CV))) +
   geom_point() +
-  facet_wrap(vars(FleetName), ncol = 2, scales = "free_y") +
+  facet_wrap(vars(name), ncol = 2, scales = "free_y") +
   expand_limits(y = 0) +
   labs(x = "Year", y = "Fishery CPUE", colour = NULL) +
   theme(legend.position = "bottom")

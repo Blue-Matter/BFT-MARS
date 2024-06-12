@@ -143,7 +143,7 @@ Dfishery@SCstdev_ymafrs[SOO_genetic[, c("y", "s", "a", "f", "r", "stock")]] <- S
 nseries <- dat$CPUEobs %>%
   as.data.frame() %>%
   summarise(n = n(), .by = c(Fleet, Area, qNo)) %>%
-  arrange(Fleet, Area, qNo)
+  arrange(qNo)
 
 CPUE_process <- lapply(1:nrow(nseries), function(i) {
   val <- dat$CPUEobs %>%
@@ -160,7 +160,10 @@ CPUE_process <- lapply(1:nrow(nseries), function(i) {
 
   ff <- nseries$Fleet[i]
   yy <- year_df$Real_year[val[, "Year"]] %>% range(na.rm = TRUE) %>% paste(collapse = "-")
-  name <- paste0(fleet_df$FleetName[nseries$Fleet[i]], ", ", area_df$AreaName[nseries$Area[i]], ", ", yy)
+  name <- paste0(dat$CPUEnames[nseries$qNo[i]], " (", fleet_df$FleetName[nseries$Fleet[i]], ", ", area_df$AreaName[nseries$Area[i]], ")")
+  #name <- paste0(dat$CPUEnames[nseries$qNo[i]],
+  #               " (",
+  #               fleet_df$FleetName[nseries$Fleet[i]], ", ", area_df$AreaName[nseries$Area[i]], ", ", yy, ")")
 
   list(index = index, index_sd = index_sd, samp = samp, name = name, ff = ff)
 })
@@ -175,7 +178,9 @@ cpue_f <- sapply(CPUE_process, getElement, "ff")
 
 nsurv <- dat$Iobs %>%
   as.data.frame() %>%
-  summarise(n = n(), .by = c(Ino, type, stock, area))
+  summarise(n = n(), .by = c(Ino, type, stock, area)) %>%
+  arrange(Ino) %>%
+  mutate(name = dat$Inames)
 
 I_process <- lapply(nsurv$Ino, function(i) {
   val <- dat$Iobs %>%
@@ -203,7 +208,8 @@ I_process <- lapply(nsurv$Ino, function(i) {
   )
 
   yy <- year_df$Real_year[val[, "Year"]] %>% range(na.rm = TRUE) %>% paste(collapse = "-")
-  name <- paste0(dat$Inames[i], ", ", area_df$AreaName[unique(val[, "area"])], ", ", yy)
+  #name <- paste0(dat$Inames[i], ", ", area_df$AreaName[unique(val[, "area"])], ", ", yy)
+  name <- paste0(dat$Inames[i], " (", area_df$AreaName[unique(val[, "area"])], ")")
 
   list(index = index, index_sd = index_sd, samp = samp, name = name, ff = ff)
 })
