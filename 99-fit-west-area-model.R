@@ -105,7 +105,8 @@ fit <- fit_MARS(
 )
 tictoc::toc()
 
-saveRDS(fit, file = "fit/modelWmult_April2024.rds")
+# Western model needs a multinomial likelihood for the catch at length
+saveRDS(fit, file = "fit/modelW_April2024.rds")
 
 fit <- readRDS(file = "fit/modelW_April2024.rds")
 report(fit, dir = "fit", filename = "preliminary_fit_WATL")

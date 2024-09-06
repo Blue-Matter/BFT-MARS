@@ -12,8 +12,7 @@ sim_fn <- function(fit, do_SC = TRUE, do_tag = TRUE) {
 
   # Catch
   pos_catch <- MARSdata@Dfishery@Cobs_ymfr > 0
-  newdata@Dfishery@Cobs_ymfr[pos_catch] <-
-    newdata@Dfishery@Cobs_ymfr[pos_catch] * rlnorm(sum(pos_catch), 0, 0.05)
+  newdata@Dfishery@Cobs_ymfr[pos_catch] <- MARSdata@Dfishery@Cobs_ymfr[pos_catch] * rlnorm(sum(pos_catch), 0, 0.05)
 
   # CAL
   CALpred <- apply(fit@report$CN_ymlfrs, 1:5, sum)
@@ -117,42 +116,56 @@ sim_fn <- function(fit, do_SC = TRUE, do_tag = TRUE) {
 }
 
 
-fit_sim <- function(MARSdata, pars, nr = 1, ns = 1, r, s) {
+fit_sim <- function(MARSdata, pars, nr = 1, ns = 1, r, s, mult = FALSE) {
 
   newdata <- MARSdata
 
   if (nr == 1 && ns == 1) {
+
+    require(dplyr)
 
     newdata@Dmodel@nr <- nr
     newdata@Dmodel@ns <- ns
     newdata@Dmodel@scale_s <- rep(1, ns)
     newdata@Dstock@len_ymas <- MARSdata@Dstock@len_ymas[, , , s, drop = FALSE]
     newdata@Dstock@sdlen_ymas <- MARSdata@Dstock@sdlen_ymas[, , , s, drop = FALSE]
+    newdata@Dstock@LAK_ymals <- MARSdata@Dstock@LAK_ymals[, , , , s, drop = FALSE]
+    newdata@Dstock@fec_yas <- MARSdata@Dstock@fec_yas[, , s, drop = FALSE]
     newdata@Dstock@swt_ymas <- MARSdata@Dstock@swt_ymas[, , , s, drop = FALSE]
     newdata@Dstock@Md_yas <- MARSdata@Dstock@Md_yas[, , s, drop = FALSE]
     newdata@Dstock@SRR_s <- rep("BH", ns)
     newdata@Dstock@delta_s <- rep(0, ns)
     newdata@Dstock@presence_rs <- new("matrix")
+    newdata@Dstock@natal_rs <- matrix(1, nr, ns)
 
-    newdata@Dfishery@Cobs_ymfr <- array(0, c(MARSdata@Dmodel@ny, MARSdata@Dmodel@nm, MARSdata@Dfishery@nf, nr))
-    newdata@Dfishery@Cobs_ymfr[] <- apply(MARSdata@Dfishery@Cobs_ymfr[, , , r], 1:3, sum)
-    has_catch <- sapply(1:MARSdata@Dfishery@nf, function(f) sum(MARSdata@Dfishery@Cobs_ymfr[, , f, ]) > 0)
-    newdata@Dfishery@Cobs_ymfr <- MARSdata@Dfishery@Cobs_ymfr[, , has_catch > 0, , drop = FALSE]
+    has_catch <- sapply(1:MARSdata@Dfishery@nf, function(f) sum(MARSdata@Dfishery@Cobs_ymfr[, , f, r]) > 0)
     newdata@Dfishery@nf <- sum(has_catch)
+    newdata@Dfishery@fwt_ymafs <- new("array")
+
+    newdata@Dfishery@Cobs_ymfr <- array(0, c(MARSdata@Dmodel@ny, MARSdata@Dmodel@nm, newdata@Dfishery@nf, nr))
+    newdata@Dfishery@Cobs_ymfr[] <- apply(MARSdata@Dfishery@Cobs_ymfr[, , has_catch, r], 1:3, sum)
+    #newdata@Dfishery@Cobs_ymfr <- MARSdata@Dfishery@Cobs_ymfr[, , has_catch > 0, , drop = FALSE]
 
     newdata@Dfishery@CALobs_ymlfr <- array(0, c(MARSdata@Dmodel@ny, MARSdata@Dmodel@nm, MARSdata@Dmodel@nl, newdata@Dfishery@nf, nr))
     newdata@Dfishery@CALobs_ymlfr[] <- apply(MARSdata@Dfishery@CALobs_ymlfr[, , , has_catch, r], 1:4, sum)
 
-    #datw@Dfishery@fcomp_like <- "multinomial"
-    #datw@Dfishery@CALN_ymfr <- apply(
-    #  datw@Dfishery@CALobs_ymlfr,
-    #  c(1, 2, 4, 5),
-    #  function(x) ifelse(sum(x) > 0, 40, 0)
-    #)
+    if (mult) {
+      newdata@Dfishery@fcomp_like <- "multinomial"
+      newdata@Dfishery@CALN_ymfr <- apply(
+        newdata@Dfishery@CALobs_ymlfr,
+        c(1, 2, 4, 5),
+        function(x) ifelse(sum(x) > 0, 40, 0)
+      )
+    } else {
+      #newdata@Dfishery@fcomp_like <- "multinomial"
+      newdata@Dfishery@CALN_ymfr <- new("array")
+    }
 
     newdata@Dfishery@sel_f <- MARSdata@Dfishery@sel_f[has_catch]
-
     newdata@Dfishery@SC_ymafrs <- new("array")
+    newdata@Dfishery@CALtheta_f <- MARSdata@Dfishery@CALtheta_f[has_catch]
+    newdata@Dfishery@sel_block_yf <- new("array")
+    newdata@Dfishery@Cinit_mfr <- new("array")
 
     has_index <- sapply(1:MARSdata@Dsurvey@ni, function(i) sum(MARSdata@Dsurvey@samp_irs[i, r, s]) > 0)
 
@@ -162,12 +175,13 @@ fit_sim <- function(MARSdata, pars, nr = 1, ns = 1, r, s) {
     newdata@Dsurvey@unit_i <- MARSdata@Dsurvey@unit_i[has_index]
     newdata@Dsurvey@samp_irs <- new("array")
     newdata@Dsurvey@sel_i <- MARSdata@Dsurvey@sel_i[has_index]
+    newdata@Dsurvey@delta_i <- MARSdata@Dsurvey@delta_i[has_index]
 
     #date@Dlabel@index[has_index]
     #date@Dsurvey@sel_i
     #date@Dlabel@fleet[has_catch]
 
-    if (all(r == 1:2)) { # Eastern stock
+    if (all(r == 3:4)) { # Eastern stock
       newdata@Dsurvey@sel_i[newdata@Dsurvey@sel_i == "12"] <- "10"
       newdata@Dsurvey@sel_i[newdata@Dsurvey@sel_i == "13"] <- "11"
       newdata@Dsurvey@sel_i[newdata@Dsurvey@sel_i == "15"] <- "3" ## Mirror to RRUS?
@@ -197,7 +211,7 @@ fit_sim <- function(MARSdata, pars, nr = 1, ns = 1, r, s) {
       p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.3, log = TRUE)")
 
       # Descending limb with lognormal SD = 0.3
-      if (grepl("dome", date@Dfishery@sel_f[f])) {
+      if (grepl("dome", newdata@Dfishery@sel_f[f])) {
         start_p3 <- round(pars$p$sel_pf[3, f], 2)
         p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.3, log = TRUE)")
       } else {
@@ -223,7 +237,7 @@ fit_sim <- function(MARSdata, pars, nr = 1, ns = 1, r, s) {
 
   sim_output <- list(
     report = fit@report,
-    opt = opt,
+    opt = fit@opt,
     gr = fit@obj$gr(fit@opt$par)
   )
 
@@ -234,9 +248,9 @@ sim_2stock <- function(sims, est, cpus = 10) {
 
   snowfall::sfInit(parallel = TRUE, cpus = cpus)
   on.exit(snowfall::sfStop())
-  
+
   sfLibrary(MARS)
-  
+
   parameters <- as.list(est@SD, what = "Estimate") %>%
     structure("what" = NULL)
   map <- get_MARSdata(est)@Misc$map
@@ -249,11 +263,11 @@ sim_2stock <- function(sims, est, cpus = 10) {
   return(output)
 }
 
-sim_1stock <- function(sims, est, log_R0, r, s, cpus = 10) {
+sim_1stock <- function(sims, est, log_R0, r, s, cpus = 10, mult = FALSE) {
 
   snowfall::sfInit(parallel = TRUE, cpus = cpus)
   on.exit(snowfall::sfStop())
-  
+
   sfLibrary(MARS)
 
   parameters <- as.list(est@SD, what = "Estimate") %>%
@@ -266,7 +280,7 @@ sim_1stock <- function(sims, est, log_R0, r, s, cpus = 10) {
   pars <- list(p = parameters, map = map, random = random)
   snowfall::sfExport(list = c("pars", "r", "s"))
   output <- pbapply::pblapply(
-    sims, fit_sim, pars = pars, nr = 1, ns = 1,
+    sims, fit_sim, pars = pars, nr = 1, ns = 1, mult = mult,
     r = r, s = s, cl = snowfall::sfGetCluster()
   )
 
