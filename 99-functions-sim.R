@@ -34,17 +34,18 @@ sim_fn <- function(fit, do_SC = TRUE, do_tag = TRUE) {
           pred <- CALpred[y, m, , f, r]
           if (sum(obs, na.rm = TRUE) && sum(pred)) {
 
-            ppred <- pred/sum(pred)
-            pobs <- obs/sum(obs)
-            var <- 1/pred
-            mvar <- median(var)
-            N <- try(uniroot(solve_N, interval = c(0, 500), pred = ppred, val = mvar), silent = TRUE)
+            #ppred <- pred/sum(pred)
+            #pobs <- obs/sum(obs)
+            #var <- 1/pred
+            #mvar <- median(var)
+            #N <- try(uniroot(solve_N, interval = c(0, 500), pred = ppred, val = mvar), silent = TRUE)
 
-            if (is.character(N)) {
-              NCAL <- 500
-            } else {
-              NCAL <- ceiling(N$root)
-            }
+            #if (is.character(N)) {
+            #  NCAL <- 500
+            #} else {
+            #  NCAL <- ceiling(N$root)
+            #}
+            NCAL <- 100
 
             # Use multinomial for CAL with variance specified by lognormal var
             newdata@Dfishery@CALobs_ymlfr[y, m, , f, r] <- rmultinom(
@@ -81,17 +82,18 @@ sim_fn <- function(fit, do_SC = TRUE, do_tag = TRUE) {
               pred <- pred_ymrs[y, m, r, ]
               if (sum(obs, na.rm = TRUE) && sum(pred)) {
 
-                ppred <- pred/sum(pred)
-                pobs <- obs/sum(obs)
-                var <- MARSdata@Dfishery@SCstdev_ymafrs[y, m, a, f, r, ]^2
-                mvar <- median(var)
-                N <- try(uniroot(solve_N, interval = c(0, 500), pred = ppred, val = mvar), silent = TRUE)
+                #ppred <- pred/sum(pred)
+                #pobs <- obs/sum(obs)
+                #var <- MARSdata@Dfishery@SCstdev_ymafrs[y, m, a, f, r, ]^2
+                #mvar <- median(var)
+                #N <- try(uniroot(solve_N, interval = c(0, 500), pred = ppred, val = mvar), silent = TRUE)
 
-                if (is.character(N)) {
-                  NSC <- 500
-                } else {
-                  NSC <- ceiling(N$root)
-                }
+                #if (is.character(N)) {
+                #  NSC <- 500
+                #} else {
+                #  NSC <- ceiling(N$root)
+                #}
+                NSC <- 50
 
                 # Use multinomial for SC with variance specified by lognormal var
                 newdata@Dfishery@SC_ymafrs[y, m, a, f, r, ] <- rmultinom(
